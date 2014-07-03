@@ -9,3 +9,4 @@ out
 .idea
 .DS_Store
 
+/LinkBench/nbproject/private/
