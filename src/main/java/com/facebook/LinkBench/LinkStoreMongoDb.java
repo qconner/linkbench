@@ -488,7 +488,7 @@ public class LinkStoreMongoDb extends GraphStore {
         if (ndocs == 0) {
             return null;
         }
-        return (Link[]) links.toArray();
+        return links.toArray(new Link[ndocs]);
     }
 
     @Override
@@ -675,13 +675,6 @@ public class LinkStoreMongoDb extends GraphStore {
 
         /* XXX: check the write actually succedes */
         WriteResult insert = coll.insert(documents);
-
-        /*
-        if (nodes.size() != insert){
-            throw new Exception("Wrong number of documents inserted: " +
-                "expected " + nodes.size() + " actual " + insert.getN());
-        }
-        */
 
         long[] id_arr = new long[documents.size()];
         int i = 0;
