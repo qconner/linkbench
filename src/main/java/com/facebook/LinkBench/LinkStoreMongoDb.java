@@ -458,19 +458,30 @@ public class LinkStoreMongoDb extends GraphStore {
         DB db = conn.getDB(dbid);
         DBCollection coll = db.getCollection(linkCollection);
 
-        /* XXX: order by, limit */
-        /* XXX: implement */
-        BasicDBObject id_clause = new BasicDBObject();
-        BasicDBObject link_clause = new BasicDBObject();
-        BasicDBObject time_clause = new BasicDBObject();
-        BasicDBObject visibility = new BasicDBObject();
-        BasicDBObject query = new BasicDBObject();
+        /* XXX: forceIndex? */
+        BasicDBObject id_clause = new BasicDBObject("id1", id1);
+        BasicDBObject link_clause = new BasicDBObject("link_type", link_type);
+        BasicDBObject time_clause = new BasicDBObject("time",
+                new BasicDBObject("$gte", minTimestamp)
+                        .append("$lt", maxTimestamp));
+        BasicDBObject visibility_clause = new BasicDBObject("visibility",
+                LinkStore.VISIBILITY_DEFAULT);
+
+        BasicDBList and = new BasicDBList();
+        and.add(id_clause);
+        and.add(link_clause);
+        and.add(time_clause);
+        and.add(visibility_clause);
+
+        BasicDBObject query = new BasicDBObject("$and", and);
 
         if (Level.TRACE.isGreaterOrEqual(debuglevel)) {
             logger.trace("query: " + query.toString());
         }
 
-        DBCursor cur = coll.find(query);
+        DBCursor cur = coll.find(query).sort(new BasicDBObject("time", 1))
+                .skip(offset).limit(limit);
+
         ArrayList<Link> links = new ArrayList<>();
         int ndocs = 0;
 
