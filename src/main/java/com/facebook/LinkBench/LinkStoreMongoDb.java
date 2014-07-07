@@ -413,7 +413,7 @@ public class LinkStoreMongoDb extends GraphStore {
             Link l = createLinkFromDoc((BasicDBObject) cur.next());
             links.add(l);
         }
-        return (Link[]) links.toArray();
+        return links.toArray(new Link[links.size()]);
     }
 
     private Link createLinkFromDoc(BasicDBObject doc)
