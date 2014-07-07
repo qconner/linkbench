@@ -589,6 +589,7 @@ public class LinkStoreMongoDb extends GraphStore {
         while (true) {
             try {
                 addBulkCountsImpl(dbid, counts);
+                return;
             } catch (Exception e) {
                 throw e;
             }
