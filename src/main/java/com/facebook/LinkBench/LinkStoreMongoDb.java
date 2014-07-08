@@ -463,7 +463,7 @@ public class LinkStoreMongoDb extends GraphStore {
         BasicDBObject link_clause = new BasicDBObject("link_type", link_type);
         BasicDBObject time_clause = new BasicDBObject("time",
                 new BasicDBObject("$gte", minTimestamp)
-                        .append("$lt", maxTimestamp));
+                        .append("$lte", maxTimestamp));
         BasicDBObject visibility_clause = new BasicDBObject("visibility",
                 LinkStore.VISIBILITY_DEFAULT);
 
