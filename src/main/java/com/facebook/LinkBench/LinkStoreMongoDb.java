@@ -65,12 +65,16 @@ public class LinkStoreMongoDb extends GraphStore {
 
     private final Logger logger = Logger.getLogger(ConfigUtil.LINKBENCH_LOGGER);
 
-    /* Generator for _id */
-    AtomicInteger id_gen;
+    /* Generator for _id (load phase) */
+    AtomicInteger id_seq;
+
+    /* Generator for _id (request phase) */
+    Random id_gen;
 
     public LinkStoreMongoDb() {
         super();
-        id_gen = new AtomicInteger();
+        id_gen = new Random();
+        id_seq = new AtomicInteger();
     }
 
     public LinkStoreMongoDb(Properties props) throws IOException, Exception {
@@ -673,7 +677,16 @@ public class LinkStoreMongoDb extends GraphStore {
         List<DBObject> documents = new ArrayList<>();
 
         for (Node node: nodes) {
-            BasicDBObject doc = new BasicDBObject("_id", id_gen.addAndGet(1))
+            long next_id;
+
+            if (phase == Phase.LOAD) {
+                next_id = id_seq.addAndGet(1);
+            }
+            else { /* phase == Phase.REQUEST */
+                next_id = id_gen.nextLong();
+            }
+
+            BasicDBObject doc = new BasicDBObject("_id", next_id)
                     .append("type", node.type)
                     .append("version", node.version)
                     .append("time", node.time)
