@@ -788,7 +788,7 @@ public class LinkStoreMongoDb extends GraphStore {
             logger.trace(set.toString());
         }
 
-        WriteResult w_res = coll.update(set, set, false, true,
+        WriteResult w_res = coll.update(query, set, false, true,
                 toWriteConcern(CONFIG_WRITECONCERN));
 
         /* XXX: are we interested in the number of documents modified or
