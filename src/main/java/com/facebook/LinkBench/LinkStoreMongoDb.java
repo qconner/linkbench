@@ -205,14 +205,130 @@ public class LinkStoreMongoDb extends GraphStore {
                          "." + l.link_type);
         }
 
-        int ndocs = addLinksNoCount(dbid, Collections.singletonList(l));
+        DB db = conn.getDB(defaultDB);
+        DBCollection coll = db.getCollection(linkCollection);
 
-        if (Level.TRACE.isGreaterOrEqual(debuglevel)) {
-            logger.trace("ndocs = " + ndocs);
+        BasicDBObject query = new BasicDBObject("id1", l.id1)
+            .append("id2", l.id2)
+            .append("link_type", l.link_type);
+
+        BasicDBObject doc = new BasicDBObject("id1", l.id1)
+            .append("id2", l.id2)
+            .append("link_type", l.link_type)
+            .append("visibility", l.visibility)
+            .append("data", l.data.toString())
+            .append("version", l.version);
+
+        BasicDBObject old_doc = (BasicDBObject)
+            coll.findAndModify(query, null, null,
+            false, doc, false /* returnNew */, true /* upsert */);
+
+
+        /* XXX: This isn't done atomically. There's a window in which
+         * the server might crash, the update on counttable fail and
+         * the consistency between the two tables not maintained anymore.
+         * But this is a benchmark, so we're not really worried about this case.
+         */
+        boolean row_found;
+        boolean update_data = false;
+        int update_count = 0;
+
+        if (old_doc == null) {
+            /*
+             * We inserted a new document -- it wasn't previously there.
+             * Need to update counttable.
+             */
+            if (l.visibility == VISIBILITY_DEFAULT) {
+                update_count = 1;
+            }
+            row_found = false;
         }
 
-        /* XXX: fixme, Insert or update */
-        return true;
+        else {
+            /*
+             * The document was already there -- we just update it.
+             * Check if visibility was updated or it was unchanged
+             */
+
+            /* Visibility unchanged, need to update other data */
+            /* XXX: check if there's a sane way to extract byte from BSON doc */
+            if (l.visibility == Byte.parseByte(old_doc.getString("visibility")))
+            {
+                update_data = true;
+                row_found = true;
+            }
+
+            /*
+             * Visibility changed from VISBILITY_HIDDEN to DEFAULT.
+             * Need to update both counttable and other data.
+             */
+            else {
+                if (l.visibility == VISIBILITY_DEFAULT) {
+                    update_count = 1;
+                }
+                else {
+                    update_count = -1;
+                }
+                update_data = true;
+                row_found = true;
+            }
+        }
+
+        if (update_count != 0) {
+            int base_count = update_count < 0 ? 0 : 1;
+
+            /*
+             * Query to update counttable
+             * If <id; link_type> is not there, add a new document with
+             * count = 1, else increment count by one unit.
+             */
+            long currentTime = (new Date()).getTime();
+            BasicDBObject count_query = new BasicDBObject("id", l.id1)
+                    .append("link_type", l.link_type);
+
+            BasicDBObject set = new BasicDBObject("date", currentTime);
+            BasicDBObject inc = new BasicDBObject("count", 1)
+                    .append("version", 1);
+            BasicDBObject count_update = new BasicDBObject("$set", set).
+                    append("$inc", inc);
+
+            coll.update(doc, count_update, true /* upsert */,
+                    false /* multi */);
+
+            if (Level.TRACE.isGreaterOrEqual(debuglevel)) {
+                logger.trace(count_update.toString());
+            }
+        }
+
+        if (update_data) {
+
+            /*
+             * Query to update link data
+             * (the first query only updates visibility).
+             */
+            BasicDBObject query_data = new BasicDBObject("id1", l.id1)
+                .append("id2", l.id2)
+                .append("link_type", l.link_type);
+
+            BasicDBObject update_dataobj =
+                    new BasicDBObject("visibility", l.visibility)
+                        .append("data", l.data)
+                        .append("time", l.time)
+                        .append("version", l.version);
+
+            BasicDBObject update_doc =
+                    new BasicDBObject("$set", update_dataobj);
+
+            if (Level.TRACE.isGreaterOrEqual(debuglevel)) {
+                logger.trace(update_doc.toString());
+            }
+
+            coll.update(query_data, update_dataobj, true /* upsert */,
+                    false /* multi */);
+        }
+
+        return row_found;
+
     }
 
     private int addLinksNoCount(String dbid, List<Link> links)
